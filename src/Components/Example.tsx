@@ -53,7 +53,9 @@ function Example() {
       flex: 1,
       padding: "15px 8px",
       fontSize: isMobile ? "1rem" : "1.1rem",
-
+      width: "100%",
+      maxWidth: "400px",
+      margin: "8px auto",
       border: `2px solid ${
         isSelected ? "#4CAF50" : is108th ? "#FF9800" : "#a1887f"
       }`,
@@ -65,6 +67,7 @@ function Example() {
         : isDisabled
         ? "#f0f0f0"
         : "#ffffff",
+
       color: isDisabled ? "#9e9e9e" : is108th ? "#BF360C" : "#4e342e",
       cursor: isDisabled ? "not-allowed" : "pointer",
       fontWeight: is108th ? "bold" : "normal",
