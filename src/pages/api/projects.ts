@@ -5,7 +5,7 @@ export default (req: NextApiRequest, res: NextApiResponse) => {
   const pageSize = 108;
 
   // 👇 Configurable maximum number
-  const maxNumber = 1404;
+  const maxNumber = 10000000 * 13;
 
   // 👇 Stop if cursor is beyond the maximum
   if (cursor > maxNumber) {

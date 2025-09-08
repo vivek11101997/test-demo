@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import OmSpinner from "./OmSpinner";
 import { useInView } from "react-intersection-observer";
-import {
-  useInfiniteQuery,
-} from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import debounce from "lodash.debounce";
 import { writeMessage, subscribeToMessages } from "../lib/db";
+import { toast } from "react-toastify";
 function Example() {
   const { ref, inView } = useInView();
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -14,23 +13,51 @@ function Example() {
   const pageSize = 108;
   const [, forceUpdate] = useState(0);
 
-  const debouncedWriteMessage = useMemo(
-    () => debounce((id: number) => writeMessage(id), 300),
-    []
-  );
+  const debouncedWriteMessage = useMemo(() => {
+    return debounce(async (id: number) => {
+      try {
+        await writeMessage(id);
+      } catch (error) {
+        console.error("Error in debounced writeMessage:", error);
+        // alert("Failed to send message. Please try again.");
+        toast.error("❌ Failed to send message. Please try again.");
+      }
+    }, 300);
+  }, []);
+  const useIsMobile = (breakpoint = 768) => {
+    const [isMobile, setIsMobile] = useState(false); // Default false for SSR
+
+    useEffect(() => {
+      // Only runs in the browser
+      const checkMobile = () => setIsMobile(window.innerWidth <= breakpoint);
+
+      checkMobile(); // Set initial value
+      window.addEventListener("resize", checkMobile);
+
+      return () => window.removeEventListener("resize", checkMobile);
+    }, [breakpoint]);
+
+    return isMobile;
+  };
+  const isMobile = useIsMobile();
 
   const getButtonStyle = (
     id: number,
     isSelected: boolean,
-    isDisabled: boolean
+    isDisabled: boolean,
+    isMobile: boolean
   ) => {
     const is108th = id % 108 === 0;
+
     return {
+      flex: 1,
+      padding: "15px 8px",
+      fontSize: isMobile ? "1rem" : "1.1rem",
+
       border: `2px solid ${
         isSelected ? "#4CAF50" : is108th ? "#FF9800" : "#a1887f"
       }`,
       borderRadius: "16px",
-      padding: "1rem 2rem",
       background: isSelected
         ? "#E8F5E9"
         : is108th
@@ -40,7 +67,6 @@ function Example() {
         : "#ffffff",
       color: isDisabled ? "#9e9e9e" : is108th ? "#BF360C" : "#4e342e",
       cursor: isDisabled ? "not-allowed" : "pointer",
-      fontSize: "1.1rem",
       fontWeight: is108th ? "bold" : "normal",
       transition: "all 0.3s ease",
       boxShadow: isSelected
@@ -48,6 +74,7 @@ function Example() {
         : is108th
         ? "0 0 10px rgba(255, 152, 0, 0.5)"
         : "0 1px 4px rgba(0,0,0,0.1)",
+      textAlign: "center",
     };
   };
 
@@ -146,27 +173,10 @@ function Example() {
       .find((project) => project.id === selectedId);
   }, [data, selectedId]);
 
-  // useEffect(() => {
-  //   if (!data?.pages?.length) return;
-
-  //   for (const page of data.pages) {
-  //     for (const project of page.data) {
-  //       const isDisabled = disabledIdsRef.current.has(project.id);
-  //       if (!isDisabled) {
-  //         const el = document.getElementById(`project-button-${project.id}`);
-  //         if (el) {
-  //           el.scrollIntoView({ behavior: "smooth", block: "center" });
-  //         }
-  //         return; // stop after first scroll
-  //       }
-  //     }
-  //   }
-  // }, [data, disabledIdsRef.current.size]);
-
   // Show nothing until Firebase data is loaded
-if (!initialCursorReady) {
-  return <OmSpinner />;
-}
+  if (!initialCursorReady) {
+    return <OmSpinner />;
+  }
 
   return (
     <div
@@ -175,19 +185,18 @@ if (!initialCursorReady) {
         fontFamily: "Georgia, serif",
         color: "#4e342e",
         minHeight: "100vh",
-        padding: "2rem",
       }}
     >
       <h1
         style={{
           textAlign: "center",
           color: "#d84315",
-          fontSize: "2.5rem",
+          fontSize: isMobile ? "1.8rem" : "2.5rem",
           marginBottom: "1rem",
           textShadow: "1px 1px 2px #ffcc80",
         }}
       >
-        ✨ श्री राम जय राम जय जय राम ✨
+        श्री राम जय राम जय जय राम
       </h1>
 
       <b
@@ -196,10 +205,10 @@ if (!initialCursorReady) {
           top: 0,
           zIndex: 1000,
           background: "#fff8e1",
-          padding: "1rem",
+          padding: isMobile ? "0.8rem" : "1rem",
           display: "block",
           textAlign: "center",
-          fontSize: "1.3rem",
+          fontSize: isMobile ? "1rem" : "1.3rem",
           color: "#6d4c41",
           boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
           borderBottom: "1px solid #ffe082",
@@ -210,21 +219,27 @@ if (!initialCursorReady) {
       </b>
 
       {status === "pending" ? (
- <OmSpinner />
+        <OmSpinner />
       ) : status === "error" ? (
         <span>Error: {(error as Error).message}</span>
       ) : (
         <>
           {/* Load Older Button */}
-          <div style={{ textAlign: "center", marginBottom: "1rem" ,marginTop: "15px"}}>
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: isMobile ? "1rem" : "1.5rem",
+              marginTop: "1rem",
+            }}
+          >
             <button
               onClick={() => debouncedFetchPreviousPage()}
               disabled={!hasPreviousPage || isFetchingPreviousPage}
               style={{
                 border: "1px solid #a1887f",
                 borderRadius: "12px",
-                padding: "0.8rem 1.5rem",
-                fontSize: "1.1rem",
+                fontSize: isMobile ? "1rem" : "1.1rem",
+                padding: isMobile ? "0.6rem 1rem" : "0.8rem 1.5rem",
                 cursor: !hasPreviousPage ? "not-allowed" : "pointer",
                 background: !hasPreviousPage ? "#f0f0f0" : "#fff3e0",
                 color: !hasPreviousPage ? "#9e9e9e" : "#5d4037",
@@ -268,6 +283,7 @@ if (!initialCursorReady) {
                   <div
                     style={{
                       display: "flex",
+                      flexDirection: "column",
                       flexWrap: "wrap",
                       gap: "1rem",
                     }}
@@ -284,7 +300,8 @@ if (!initialCursorReady) {
                           style={getButtonStyle(
                             project.id,
                             isSelected,
-                            isDisabled
+                            isDisabled,
+                            isMobile
                           )}
                         >
                           <p
