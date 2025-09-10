@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import OmSpinner from "./OmSpinner";
 import { useInView } from "react-intersection-observer";
@@ -5,50 +6,42 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import debounce from "lodash.debounce";
 import { writeMessage, subscribeToMessages } from "../lib/db";
 import { toast } from "react-toastify";
+
+// Custom hook moved outside component for optimization
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= breakpoint);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 function Example() {
   const { ref, inView } = useInView();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const disabledIdsRef = useRef<Set<number>>(new Set());
   const [initialCursorReady, setInitialCursorReady] = useState(false);
   const pageSize = 108;
+  // forceUpdate is used to trigger re-render when ref changes
   const [, forceUpdate] = useState(0);
 
-  const debouncedWriteMessage = useMemo(() => {
-    return debounce(async (id: number) => {
-      try {
-        await writeMessage(id);
-      } catch (error) {
-        console.error("Error in debounced writeMessage:", error);
-        // alert("Failed to send message. Please try again.");
-        toast.error("❌ Failed to send message. Please try again.");
-      }
-    }, 300);
-  }, []);
-  const useIsMobile = (breakpoint = 768) => {
-    const [isMobile, setIsMobile] = useState(false); // Default false for SSR
+  const debouncedWriteMessage = useMemo(() => debounce(async (id: number) => {
+    try {
+      await writeMessage(id);
+    } catch (error) {
+      console.error("Error in debounced writeMessage:", error);
+      toast.error("❌ Failed to send message. Please try again.");
+    }
+  }, 300), []);
 
-    useEffect(() => {
-      // Only runs in the browser
-      const checkMobile = () => setIsMobile(window.innerWidth <= breakpoint);
-
-      checkMobile(); // Set initial value
-      window.addEventListener("resize", checkMobile);
-
-      return () => window.removeEventListener("resize", checkMobile);
-    }, [breakpoint]);
-
-    return isMobile;
-  };
   const isMobile = useIsMobile();
 
-  const getButtonStyle = (
-    id: number,
-    isSelected: boolean,
-    isDisabled: boolean,
-    isMobile: boolean
-  ) => {
+  // Memoized button style generator
+  const getButtonStyle = (id: number, isSelected: boolean, isDisabled: boolean, isMobile: boolean) => {
     const is108th = id % 108 === 0;
-
     return {
       flex: 1,
       padding: "15px 8px",
@@ -56,62 +49,38 @@ function Example() {
       width: "100%",
       maxWidth: "400px",
       margin: "8px auto",
-      border: `2px solid ${
-        isSelected ? "#4CAF50" : is108th ? "#FF9800" : "#a1887f"
-      }`,
+      border: `2px solid ${isSelected ? "#4CAF50" : is108th ? "#FF9800" : "#a1887f"}`,
       borderRadius: "16px",
-      background: isSelected
-        ? "#E8F5E9"
-        : is108th
-        ? "#FFF3E0"
-        : isDisabled
-        ? "#f0f0f0"
-        : "#ffffff",
-
+      background: isSelected ? "#E8F5E9" : is108th ? "#FFF3E0" : isDisabled ? "#f0f0f0" : "#ffffff",
       color: isDisabled ? "#9e9e9e" : is108th ? "#BF360C" : "#4e342e",
       cursor: isDisabled ? "not-allowed" : "pointer",
       fontWeight: is108th ? "bold" : "normal",
       transition: "all 0.3s ease",
-      boxShadow: isSelected
-        ? "0 0 12px rgba(76, 175, 80, 0.6)"
-        : is108th
-        ? "0 0 10px rgba(255, 152, 0, 0.5)"
-        : "0 1px 4px rgba(0,0,0,0.1)",
+      boxShadow: isSelected ? "0 0 12px rgba(76, 175, 80, 0.6)" : is108th ? "0 0 10px rgba(255, 152, 0, 0.5)" : "0 1px 4px rgba(0,0,0,0.1)",
       textAlign: "center",
     };
   };
 
-  const debouncedUpdateDisabledIds = useMemo(
-    () =>
-      debounce((newSet: Set<number>) => {
-        const currentSet = disabledIdsRef.current;
-        const isChanged =
-          newSet.size !== currentSet.size ||
-          [...newSet].some((id) => !currentSet.has(id));
-
-        if (isChanged) {
-          disabledIdsRef.current = newSet;
-          forceUpdate((prev) => prev + 1);
-        }
-
-        // Once it's populated, mark as ready
-        if (!initialCursorReady && newSet.size > 0) {
-          setInitialCursorReady(true);
-        }
-      }, 300),
-    [initialCursorReady]
-  );
+  // Memoized debounced update for disabled IDs
+  const debouncedUpdateDisabledIds = useMemo(() => debounce((newSet: Set<number>) => {
+    const currentSet = disabledIdsRef.current;
+    const isChanged = newSet.size !== currentSet.size || [...newSet].some((id) => !currentSet.has(id));
+    if (isChanged) {
+      disabledIdsRef.current = newSet;
+      forceUpdate((prev) => prev + 1);
+    }
+    if (!initialCursorReady && newSet.size > 0) {
+      setInitialCursorReady(true);
+    }
+  }, 300), [initialCursorReady]);
 
   // Firebase subscription
   useEffect(() => {
     const unsubscribe = subscribeToMessages((data: any) => {
       const list = data ? Object.values(data) : [];
-      const newSet = new Set<number>(
-        list.map((item) => (item as { text: number }).text)
-      );
+      const newSet = new Set<number>(list.map((item) => (item as { text: number }).text));
       debouncedUpdateDisabledIds(newSet);
     });
-
     return () => {
       unsubscribe();
       debouncedUpdateDisabledIds.cancel();
@@ -144,42 +113,29 @@ function Example() {
     initialPageParam: disabledIdsRef.current.size,
     getPreviousPageParam: (firstPage) => firstPage.previousId,
     getNextPageParam: (lastPage) => lastPage.nextId,
-    enabled: initialCursorReady, // <-- Delay query until data is ready
+    enabled: initialCursorReady,
   });
 
-  const debouncedFetchNextPage = useMemo(
-    () => debounce(() => fetchNextPage(), 300),
-    [fetchNextPage]
-  );
-
-  const debouncedFetchPreviousPage = useMemo(
-    () => debounce(() => fetchPreviousPage(), 300),
-    [fetchPreviousPage]
-  );
+  const debouncedFetchNextPage = useMemo(() => debounce(fetchNextPage, 300), [fetchNextPage]);
+  const debouncedFetchPreviousPage = useMemo(() => debounce(fetchPreviousPage, 300), [fetchPreviousPage]);
 
   useEffect(() => {
-    if (inView) {
-      debouncedFetchNextPage();
-    }
+    if (inView) debouncedFetchNextPage();
   }, [inView, debouncedFetchNextPage]);
 
   const handleButtonClick = (id: number) => {
     setSelectedId(id);
     disabledIdsRef.current.add(id);
-    forceUpdate((prev) => prev + 1);
+    forceUpdate((prev) => prev + 1); // Needed to re-render for disabled state
     debouncedWriteMessage(id);
   };
 
-  const selectedProject = useMemo(() => {
-    return data?.pages
-      .flatMap((page) => page.data)
-      .find((project) => project.id === selectedId);
-  }, [data, selectedId]);
+  const selectedProject = useMemo(() =>
+    data?.pages.flatMap((page) => page.data).find((project) => project.id === selectedId)
+  , [data, selectedId]);
 
   // Show nothing until Firebase data is loaded
-  if (!initialCursorReady) {
-    return <OmSpinner />;
-  }
+  if (!initialCursorReady) return <OmSpinner />;
 
   return (
     <div
@@ -188,6 +144,7 @@ function Example() {
         fontFamily: "Georgia, serif",
         color: "#4e342e",
         minHeight: "100vh",
+        overflowY: "scroll", // Prevent layout shift due to scrollbar
       }}
     >
       <h1
