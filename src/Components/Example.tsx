@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import OmSpinner from "./OmSpinner";
 import { useInView } from "react-intersection-observer";
@@ -6,8 +5,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import debounce from "lodash.debounce";
 import { writeMessage, subscribeToMessages } from "../lib/db";
 import { toast } from "react-toastify";
+import styles from "./Example.module.css";
 
-// Custom hook moved outside component for optimization
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -16,8 +15,8 @@ function useIsMobile(breakpoint = 768) {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, [breakpoint]);
-  return isMobile;
-}
+    return isMobile;
+  }
 
 function Example() {
   const { ref, inView } = useInView();
@@ -39,26 +38,14 @@ function Example() {
 
   const isMobile = useIsMobile();
 
-  // Memoized button style generator
-  const getButtonStyle = (id: number, isSelected: boolean, isDisabled: boolean, isMobile: boolean) => {
-    const is108th = id % 108 === 0;
-    return {
-      flex: 1,
-      padding: "15px 8px",
-      fontSize: isMobile ? "1rem" : "1.1rem",
-      width: "100%",
-      maxWidth: "400px",
-      margin: "8px auto",
-      border: `2px solid ${isSelected ? "#4CAF50" : is108th ? "#FF9800" : "#a1887f"}`,
-      borderRadius: "16px",
-      background: isSelected ? "#E8F5E9" : is108th ? "#FFF3E0" : isDisabled ? "#f0f0f0" : "#ffffff",
-      color: isDisabled ? "#9e9e9e" : is108th ? "#BF360C" : "#4e342e",
-      cursor: isDisabled ? "not-allowed" : "pointer",
-      fontWeight: is108th ? "bold" : "normal",
-      transition: "all 0.3s ease",
-      boxShadow: isSelected ? "0 0 12px rgba(76, 175, 80, 0.6)" : is108th ? "0 0 10px rgba(255, 152, 0, 0.5)" : "0 1px 4px rgba(0,0,0,0.1)",
-      textAlign: "center",
-    };
+  // Helper to get classNames for project button
+  const getButtonClass = (id, isSelected, isDisabled, isMobile) => {
+    let classNames = [styles.projectButton];
+    if (isMobile) classNames.push(styles.projectButtonMobile);
+    if (isSelected) classNames.push(styles.projectButtonSelected);
+    if (isDisabled) classNames.push(styles.projectButtonDisabled);
+    if (id % 108 === 0) classNames.push(styles.projectButton108th);
+    return classNames.join(" ");
   };
 
   // Memoized debounced update for disabled IDs
@@ -134,45 +121,20 @@ function Example() {
     data?.pages.flatMap((page) => page.data).find((project) => project.id === selectedId)
   , [data, selectedId]);
 
-  // Show nothing until Firebase data is loaded
   if (!initialCursorReady) return <OmSpinner />;
 
   return (
-    <div
-      style={{
-        background: "linear-gradient(to bottom, #fff8e1, #ffecb3)",
-        fontFamily: "Georgia, serif",
-        color: "#4e342e",
-        minHeight: "100vh",
-        overflowY: "scroll", // Prevent layout shift due to scrollbar
-      }}
-    >
+    <div className={styles.container}>
       <h1
-        style={{
-          textAlign: "center",
-          color: "#d84315",
-          fontSize: isMobile ? "1.8rem" : "2.5rem",
-          marginBottom: "1rem",
-          textShadow: "1px 1px 2px #ffcc80",
-        }}
+        className={`${styles.heading} ${isMobile ? styles.headingMobile : ""}`}
       >
         श्री राम जय राम जय जय राम
       </h1>
 
       <b
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 1000,
-          background: "#fff8e1",
-          padding: isMobile ? "0.8rem" : "1rem",
-          display: "block",
-          textAlign: "center",
-          fontSize: isMobile ? "1rem" : "1.3rem",
-          color: "#6d4c41",
-          boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-          borderBottom: "1px solid #ffe082",
-        }}
+        className={`${styles.stickyBar} ${
+          isMobile ? styles.stickyBarMobile : ""
+        }`}
       >
         Number of Mala completed:{" "}
         {Math.floor(disabledIdsRef.current.size / 108)}
@@ -195,16 +157,9 @@ function Example() {
             <button
               onClick={() => debouncedFetchPreviousPage()}
               disabled={!hasPreviousPage || isFetchingPreviousPage}
-              style={{
-                border: "1px solid #a1887f",
-                borderRadius: "12px",
-                fontSize: isMobile ? "1rem" : "1.1rem",
-                padding: isMobile ? "0.6rem 1rem" : "0.8rem 1.5rem",
-                cursor: !hasPreviousPage ? "not-allowed" : "pointer",
-                background: !hasPreviousPage ? "#f0f0f0" : "#fff3e0",
-                color: !hasPreviousPage ? "#9e9e9e" : "#5d4037",
-                boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-              }}
+              className={`${styles.loadButton} ${
+                isMobile ? styles.loadButtonMobile : ""
+              }`}
             >
               {isFetchingPreviousPage
                 ? "Loading more..."
@@ -233,22 +188,10 @@ function Example() {
                 <div
                   key={pageIndex}
                   id={`page-${pageNumber}`}
-                  style={{
-                    background: "rgba(255, 253, 231, 0.7)",
-                    borderRadius: "12px",
-                    padding: "1rem",
-                    boxShadow: "inset 0 0 8px #ffe082",
-                  }}
+                  className={styles.pageContainer}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      flexWrap: "wrap",
-                      gap: "1rem",
-                    }}
-                  >
-                    {page.data.map((project: any) => {
+                  <div className={styles.projectList}>
+                    {page.data.map((project) => {
                       const isDisabled = disabledIdsRef.current.has(project.id);
                       const isSelected = selectedId === project.id;
                       return (
@@ -257,20 +200,14 @@ function Example() {
                           key={project.id}
                           disabled={isDisabled}
                           onClick={() => handleButtonClick(project.id)}
-                          style={getButtonStyle(
+                          className={getButtonClass(
                             project.id,
                             isSelected,
                             isDisabled,
                             isMobile
                           )}
                         >
-                          <p
-                            style={{
-                              margin: 0,
-                              textAlign: "center",
-                              lineHeight: "1.5",
-                            }}
-                          >
+                          <p className={styles.projectButtonText}>
                             {project.id}{" "}
                             {project.id % 108 === 0 ? (
                               <>
@@ -296,16 +233,7 @@ function Example() {
               ref={ref}
               onClick={() => debouncedFetchNextPage()}
               disabled={!hasNextPage || isFetchingNextPage}
-              style={{
-                border: "1px solid #a1887f",
-                borderRadius: "12px",
-                padding: "0.8rem 1.5rem",
-                fontSize: "1.1rem",
-                cursor: !hasNextPage ? "not-allowed" : "pointer",
-                background: !hasNextPage ? "#f0f0f0" : "#fff3e0",
-                color: !hasNextPage ? "#9e9e9e" : "#5d4037",
-                boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
-              }}
+              className={styles.loadButton}
             >
               {isFetchingNextPage
                 ? "Loading more..."
@@ -323,15 +251,7 @@ function Example() {
 
           {/* Selected Project Display */}
           {selectedProject && (
-            <div
-              style={{
-                marginTop: "2rem",
-                background: "#fff8e1",
-                padding: "1rem",
-                borderRadius: "10px",
-                border: "1px solid #ffe082",
-              }}
-            >
+            <div className={styles.selectedProject}>
               <h2 style={{ color: "#6d4c41" }}>Selected Project Details</h2>
               <pre>{JSON.stringify(selectedProject, null, 2)}</pre>
             </div>
@@ -339,7 +259,7 @@ function Example() {
         </>
       )}
 
-      <hr style={{ margin: "2rem 0", borderColor: "#ffe082" }} />
+      <hr className={styles.hr} />
     </div>
   );
 }
